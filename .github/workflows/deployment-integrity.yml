@@ -1,0 +1,83 @@
+name: Deployment integrity
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-integrity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate deployment artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out generated site
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Verify generated files
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { access, readFile, readdir } from "node:fs/promises";
+          import path from "node:path";
+
+          async function listFiles(directory) {
+            const entries = await readdir(directory, { withFileTypes: true });
+            const files = [];
+            for (const entry of entries) {
+              if ([".git", ".github"].includes(entry.name)) continue;
+              const entryPath = path.join(directory, entry.name);
+              if (entry.isDirectory()) files.push(...await listFiles(entryPath));
+              else files.push(entryPath);
+            }
+            return files;
+          }
+
+          const requiredPages = ["index.html", "research-studio/index.html", "404.html"];
+          const files = await listFiles(process.cwd());
+          assert.equal(files.filter((file) => file.endsWith(".js")).length, 0, "deployment must not contain executable JavaScript bundles");
+
+          for (const pagePath of requiredPages) {
+            const html = await readFile(pagePath, "utf8");
+            assert.doesNotMatch(html, /localhost|_rsc|awdsqecxzr|chatgpt\.site|Extensions_Programs|C:\\Users/i);
+            assert.doesNotMatch(html, /<div\b[^>]*\bhidden\b[^>]*>\s*<div\b[^>]*\bhidden\b/i);
+            const scripts = html.match(/<script\b[\s\S]*?<\/script>/gi) ?? [];
+            if (pagePath === "404.html") assert.equal(scripts.length, 0);
+            else {
+              assert.equal(scripts.length, 1);
+              assert.match(scripts[0], /^<script type="application\/ld\+json">/i);
+            }
+
+            const references = new Set();
+            for (const match of html.matchAll(/(?:href|src)="\/([^"?#]+)(?:[?#][^"]*)?"/g)) references.add(match[1]);
+            for (const reference of references) {
+              assert.ok(!reference.includes(".."), `unsafe reference in ${pagePath}: ${reference}`);
+              await access(reference);
+            }
+          }
+
+          const home = await readFile("index.html", "utf8");
+          assert.match(home, /id="active-source"/);
+          assert.match(home, /Active public-source prereleases/);
+          for (const repository of ["Reader", "media-scout-downloader", "SiteWipe", "portfolio-source"]) {
+            assert.ok(home.includes(`github.com/NouraldinFarge/${repository}`), `missing ${repository} link`);
+          }
+
+          const research = await readFile("research-studio/index.html", "utf8");
+          assert.ok(research.indexOf("<title>Research Studio Case Study") < research.indexOf("</head>"));
+          assert.match(research, /rel="canonical" href="https:\/\/nouraldinfarge\.github\.io\/research-studio\/"/);
+          NODE
