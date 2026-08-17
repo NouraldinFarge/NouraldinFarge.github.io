@@ -1,6 +1,6 @@
-# Nouraldin Farge — Portfolio Deployment
+# Nouraldin Farge — React & TypeScript Product Portfolio
 
-Generated GitHub Pages deployment for Nouraldin Farge’s software engineering portfolio.
+Generated GitHub Pages deployment for Nouraldin Farge’s React/TypeScript product-engineering portfolio.
 
 Live site: <https://nouraldinfarge.github.io>
 
@@ -8,8 +8,8 @@ The site highlights:
 
 - DrawScope v0.6.5
 - GameVault v0.3.5
-- Day-Trading Teacher v0.32.6
-- Research Studio v0.1.0-alpha.24, with a dedicated source-free project page at
+- Day-Trading Teacher v0.36.0, a 13-lesson public Windows release
+- Research Studio private build v0.1.0-alpha.24, with a public source-free case-study snapshot verified August 15, 2026 and a dedicated project page at
   <https://nouraldinfarge.github.io/research-studio/>
 
 ## Repository role
