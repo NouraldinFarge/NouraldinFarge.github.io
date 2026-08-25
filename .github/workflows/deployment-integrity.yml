@@ -73,11 +73,53 @@ jobs:
           const home = await readFile("index.html", "utf8");
           assert.match(home, /id="active-source"/);
           assert.match(home, /Active public-source prereleases/);
+          assert.match(home, /React &amp; TypeScript Software Engineer/);
+          assert.match(home, /github-social-preview-software-engineer-v2\.png/);
+          assert.doesNotMatch(home, /github-social-preview-product-v1\.png/);
           for (const repository of ["Reader", "media-scout-downloader", "SiteWipe", "portfolio-source"]) {
             assert.ok(home.includes(`github.com/NouraldinFarge/${repository}`), `missing ${repository} link`);
           }
+
+          const build = JSON.parse(await readFile("portfolio-build.json", "utf8"));
+          assert.deepEqual(
+            Object.keys(build).sort(),
+            ["schemaVersion", "sourceRepository", "sourceRevision", "sourceTreeState"],
+          );
+          assert.equal(build.schemaVersion, 1);
+          assert.equal(build.sourceRepository, "https://github.com/NouraldinFarge/portfolio-source");
+          assert.match(build.sourceRevision, /^[0-9a-f]{40}$/);
+          assert.equal(build.sourceTreeState, "clean");
 
           const research = await readFile("research-studio/index.html", "utf8");
           assert.ok(research.indexOf("<title>Research Studio Case Study") < research.indexOf("</head>"));
           assert.match(research, /rel="canonical" href="https:\/\/nouraldinfarge\.github\.io\/research-studio\/"/);
           NODE
+
+  deploy:
+    name: Deploy GitHub Pages
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out verified site
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload verified Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: .
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
