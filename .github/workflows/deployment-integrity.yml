@@ -32,6 +32,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
+          import { createHash } from "node:crypto";
           import { access, readFile, readdir } from "node:fs/promises";
           import path from "node:path";
 
@@ -72,13 +73,31 @@ jobs:
 
           const home = await readFile("index.html", "utf8");
           assert.match(home, /id="active-source"/);
-          assert.match(home, /Active public-source prereleases/);
+          assert.match(home, /Active source, backed by evidence\./);
+          assert.match(home, /Media Scout Downloader/);
+          assert.match(home, /Chrome MV3 prerelease/);
+          assert.match(home, /Public-source Windows alpha/);
+          assert.match(home, /None is presented as a shipped product, supported download, or extension-store release/);
+          assert.match(home, /installed-browser, accessibility, media, privacy-hosting, and release-approval gates remain open/);
           assert.match(home, /React &amp; TypeScript Software Engineer/);
           assert.match(home, /github-social-preview-software-engineer-v2\.png/);
           assert.doesNotMatch(home, /github-social-preview-product-v1\.png/);
           for (const repository of ["Reader", "media-scout-downloader", "SiteWipe", "portfolio-source"]) {
             assert.ok(home.includes(`github.com/NouraldinFarge/${repository}`), `missing ${repository} link`);
           }
+
+          const media = new Map([
+            ["projects/media-scout-inspector.png", "17BED293B2C2477F5EEAA3AE78FCBC76477A73E5E72FA64058684CDBA9D5E4F0"],
+            ["projects/reader-library-overview.jpg", "D630E80A1714F3DCA4420234DEE974C766C69DFDA35CBEA83108AE5B7BBE094D"],
+          ]);
+          for (const [file, expectedHash] of media) {
+            const content = await readFile(file);
+            assert.equal(createHash("sha256").update(content).digest("hex").toUpperCase(), expectedHash);
+          }
+          const mediaNotices = await readFile("PROJECT-MEDIA-NOTICES.md", "utf8");
+          for (const expectedHash of media.values()) assert.ok(mediaNotices.includes(expectedHash));
+          assert.match(mediaNotices, /Preserved MIT notice/);
+          assert.match(await readFile("CONTENT-LICENSE.md", "utf8"), /exceptions to the all-rights-reserved media default/);
 
           const build = JSON.parse(await readFile("portfolio-build.json", "utf8"));
           assert.deepEqual(
